@@ -192,11 +192,7 @@ def main():
 
         print("It is player {}'s turn.".format(str(player.name)))
 
-        if len(player.hand) == 0:
-            print("{} wins.".format(player.name))
-            break
-
-        print("{}, you have the following cards in your hand: ".format(player.name))
+        print("{}, you have the following {} cards in your hand: ".format(player.name,str(len(player.hand))))
         for card in player.hand:
             card_info = card.get_info()
             print("{} {}".format(card_info[1].upper(), card_info[0].upper()))
@@ -276,6 +272,10 @@ def main():
                 valid = True
             else:
                 print("You can't play that card.")
+
+        if len(player.hand) == 0:
+            print("{} wins.".format(player.name))
+            break
 
         if Round.current_player == len(Round.players) - 1:
             Round.current_player = 0
