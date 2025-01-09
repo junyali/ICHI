@@ -178,7 +178,7 @@ class Game:
                     # Colour change TBA
                     played_card.set_colour()
                 elif card_info[0] == "skip":
-                    for _ in range(2)
+                    for _ in range(2):
                         self.next_turn()
                 elif card_info[0] == "reverse":
                     self.direction = "anticlockwise" if self.direction == "clockwise" else "clockwise"
