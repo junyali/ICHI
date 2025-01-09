@@ -159,7 +159,6 @@ class Game:
             self.next_turn()
         elif self.current_action[1] and self.current_action[0].startswith("play"):
             card_to_play = self.current_action[1]
-            print("b", card_to_play.get_info())
 
             if card_to_play in current_player.hand and card_to_play.can_play(self.discard[-1]):
                 current_player.hand.remove(card_to_play)
@@ -167,7 +166,6 @@ class Game:
 
                 # Handle special cards below
                 card_info = card_to_play.get_info()
-                print(card_info)
                 if self.direction == "clockwise":
                     next_player = (self.current_player_index + 1) % len(self.players)
                 else:
@@ -322,7 +320,6 @@ class Game:
         if self.current_action and self.current_action[0] == "colour_change":
             for i, rect in enumerate(self.colour_rects):
                 pygame.draw.rect(self.screen, rect[2], rect[1])
-                print(1)
 
         if self.game_over:
             win_text = self.game_font.render(f"Player {self.winner.get_name()} wins!", True, (255, 255, 255))
