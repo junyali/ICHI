@@ -2,6 +2,8 @@
 
 ## // Imports \\ ##
 import os
+from turtledemo.penrose import start
+
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 import sys
@@ -12,6 +14,7 @@ import timeit
 ## // Constants \\ ##
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
+FRAME_RATE = 30
 
 colours = [
     "red",
@@ -48,11 +51,10 @@ class Player:
 
         self.hand = []
 
-class Bot(Player):
-
-    def __init__(self, name: str, player_id: int, intelligence: int):
-        super().__init__(name, player_id)
-        self.intelligence = intelligence
+    def get_name(self):
+        return self.name
+    def get_hand(self):
+        return self.hand
 
 class Human(Player):
 
@@ -105,30 +107,157 @@ class Game:
         self.current_player = 0
         self.direction = "clockwise"
 
+        # Pygame stuff
+        self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
+        self.clock = pygame.time.Clock()
+        self.game_font = pygame.font.SysFont("Franklin Gothic Medium", 48)
+        self.draw_rect = pygame.Rect(640 - (180 + 60) + 6, 360 - (90) - 6, 180, 90)
+        self.discard_rect = pygame.Rect(640 + (180 - 60), 360 - (90), 120, 180)
+        self.current_hand_rect_list = []
+
     def return_current_player(self):
         for player in self.players:
             if player.player_id == self.current_player:
                 return player
 
+    def return_opp_player(self):
+        for player in self.players:
+            if player.player_id != self.current_player:
+                return player
+
+    def start_round(self):
+        for player in self.players:
+            for i in range(7):
+                player.hand.append(self.deck.deck.pop(-1))
+
+        self.discard.append(self.deck.deck.pop(-1))
+
+    def draw_grid(self):
+        # Fill background
+        self.screen.fill((32, 128, 0))
+        bg = pygame.image.load("./assets/img/background.png")
+        self.screen.blit(bg, (0, 0))
+
+        # DRAW Pile
+        for i in range(4):
+            draw_sheet = pygame.image.load("./assets/spritesheets/standard_card_face.png")
+            draw_sheet = pygame.transform.scale(draw_sheet, (120, 180))
+            self.screen.blit(draw_sheet, (640-(180+60) + (i * 2), 360-(90) - (i * 2)))
+
+        # DISCARD Pile
+        discard_sheet = pygame.image.load("./assets/spritesheets/standard_card_pack.png")
+        discard_pos = get_card_sprite_pos(self.discard[-1].get_info())
+        discard_sheet.set_clip(pygame.Rect(discard_pos[0], discard_pos[1], 240, 360))
+        discard_sheet = discard_sheet.subsurface(discard_sheet.get_clip())
+        discard_sheet = pygame.transform.scale(discard_sheet, (120, 180))
+        # discard_sheet = pygame.transform.rotate(discard_sheet, random.randint(-10, 10))
+        # ???
+        self.screen.blit(discard_sheet, (640+(180-60), 360-(90)))
+
+        # Non-playing Pile
+        non_playing_player = self.return_opp_player()
+        non_playing_text = self.game_font.render(non_playing_player.get_name(), True, (255, 255, 255))
+        self.screen.blit(non_playing_text, (640 - (non_playing_text.get_rect().width / 2), 10))
+
+        cards_amount = len(non_playing_player.get_hand())
+        non_playing_index_spacing = 80
+        start_pos_x = 640 - ((((cards_amount - 1) * non_playing_index_spacing) + 120) / 2)
+        while start_pos_x < 0:
+            non_playing_index_spacing -= 1
+            if non_playing_index_spacing == 1:
+                break
+            start_pos_x = 640 - ((((cards_amount - 1) * non_playing_index_spacing) + 120) / 2)
+        for i in range(cards_amount):
+            card_sheet = pygame.image.load("./assets/spritesheets/standard_card_face.png")
+            card_sheet = pygame.transform.scale(card_sheet, (120, 180))
+            self.screen.blit(card_sheet, (start_pos_x + (i * non_playing_index_spacing), 60))
+
+        # Playing Pile
+        playing_player = self.return_current_player()
+        playing_text = self.game_font.render(playing_player.get_name(), True, (255, 255, 255))
+        self.screen.blit(playing_text, (640 - (playing_text.get_rect().width / 2), 720 - (10 + playing_text.get_rect().height)))
+
+        cards_amount = len(playing_player.get_hand())
+        playing_index_spacing = 80
+        start_pos_x = 640 - ((((cards_amount - 1) * non_playing_index_spacing) + 120) / 2)
+        while start_pos_x < 0:
+            non_playing_index_spacing -= 1
+            if non_playing_index_spacing == 1:
+                break
+            start_pos_x = 640 - ((((cards_amount - 1) * non_playing_index_spacing) + 120) / 2)
+        count = 0
+        for card in playing_player.get_hand():
+            card_pos = get_card_sprite_pos(card.get_info())
+            playing_card_sheet = pygame.image.load("./assets/spritesheets/standard_card_pack.png")
+            playing_card_sheet.set_clip(pygame.Rect(card_pos[0], card_pos[1], 240, 360))
+            playing_card_sheet = playing_card_sheet.subsurface(playing_card_sheet.get_clip())
+            playing_card_sheet = pygame.transform.scale(playing_card_sheet, (120, 180))
+            self.screen.blit(playing_card_sheet, (start_pos_x + (count * playing_index_spacing), 720 - (60 + 180)))
+            if count - 1 != cards_amount:
+                self.current_hand_rect_list.append(pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), playing_index_spacing, 180))
+            else:
+                self.current_hand_rect_list.append(pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), 120, 180))
+            count += 1
+
+        pygame.display.update()
+        self.clock.tick(FRAME_RATE)
+
+def get_card_sprite_pos(card_info):
+    pos_x, pos_y = 0, 0
+
+    if card_info[1] == "colourless":
+        pos_x = 3120
+        if card_info[0] == "wild":
+            pos_y = 0
+        elif card_info[0] == "draw_4":
+            pos_y = 1440
+    elif card_info[1] == "red":
+        pos_y = 0
+    elif card_info[1] == "yellow":
+        pos_y = 360
+    elif card_info[1] == "green":
+        pos_y = 720
+    elif card_info[1] == "blue":
+        pos_y = 1080
+
+    if card_info[1] != "colourless":
+        pos_x = values.index(card_info[0]) * 240
+
+    return pos_x, pos_y
+
 
 def main():
 
-    """
-    old
+    # Player count set to 2 for debug purposes
+    # player_number = int(input("How many players are there? >> "))
+    player_number = 2
+    players = []
+
+    for i in range(0, player_number):
+        player_name = input("Player {}, what's your name? >> ".format(i + 1))
+        players.append(Human(player_name, i))
 
     pygame.init()
-    screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
+    pygame.font.init()
 
-    deck = Deck()
+    NewGame = Game(players)
+    NewGame.start_round()
 
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            elif event.type == pygame.MOUSEBUTTONUP:
+                mouse_pos = pygame.mouse.get_pos()
+                for rect in NewGame.current_hand_rect_list:
+                    if rect.collidepoint(mouse_pos):
+                        print(rect)
+                        break
 
-        screen.fill((255, 255, 255))
+        NewGame.draw_grid()
 
+        '''
         sheet = pygame.image.load("./assets/spritesheets/standard_card_pack.png")
         pos_x, pos_y = 0, 0
 
@@ -163,29 +292,19 @@ def main():
             screen.blit(draw, backdrop)
 
             count += 1
-
-        pygame.display.flip()
+        '''
 
     pygame.quit()
     sys.exit(0)
-    """
-
-    player_number = int(input("How many players are there? >> "))
-    players = []
-
-    for i in range(0, player_number):
-        player_name = input("Player {}, what's your name? >> ".format(i + 1))
-        players.append(Human(player_name, i))
-
-    Round = Game(players)
-
-    for player in Round.players:
-        for i in range(7):
-            player.hand.append(Round.deck.deck.pop(-1))
-
-    Round.discard.append(Round.deck.deck.pop(-1))
 
     while True:
+
+        if len(Round.deck.deck) <= 25:
+            current = Round.deck.deck
+            Round.deck = Deck()
+            for card in current:
+                Round.deck.deck.append(card)
+
         player = Round.return_current_player()
 
         print("DISCARD Pile: {} {}".format(Round.discard[-1].get_info()[1].upper(), Round.discard[-1].get_info()[0].upper()))
