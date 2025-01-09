@@ -44,13 +44,13 @@ values = [
 class Player:
 
     def __init__(self, name: str, player_id: int):
-        self._name = name
-        self._player_id = player_id
+        self.name = name
+        self.player_id = player_id
 
         self.hand = []
 
     def get_name(self):
-        return self._name
+        return self.name
     def get_hand(self):
         return self.hand
 
@@ -62,25 +62,25 @@ class Human(Player):
 class Card:
 
     def __init__(self, value: str, colour: str):
-        self._value = value
-        self._colour = colour
+        self.value = value
+        self.colour = colour
         # self.action = action
 
     def get_info(self):
-        return [self._value, self._colour]
+        return [self.value, self.colour]
 
     def set_colour(self, new_colour: str):
-        self._colour = new_colour
+        self.colour = new_colour
 
     def set_value(self, new_value: str):
-        self._value = new_value
+        self.value = new_value
 
     def can_play(self, top_card):
         return (
 
-            self._colour == top_card._colour or
-            self._value == top_card.value or
-            self._colour == "colourless"
+            self.colour == top_card.colour or
+            self.value == top_card.value or
+            self.colour == "colourless"
 
         )
 
