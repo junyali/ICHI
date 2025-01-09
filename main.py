@@ -382,6 +382,7 @@ def main():
 
     pygame.init()
     pygame.font.init()
+    pygame.display.set_caption("ICHI")
 
     NewGame = Game(players)
     NewGame.start_round()
