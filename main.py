@@ -2,11 +2,9 @@
 
 ## // Imports \\ ##
 import os
-from turtledemo.penrose import start
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
-import sys
 import pygame
 import random
 from playsound3 import playsound
@@ -170,7 +168,6 @@ class Game:
                 # Handle special cards below
                 card_info = card_to_play.get_info()
                 print(card_info)
-                next_player = None
                 if self.direction == "clockwise":
                     next_player = (self.current_player_index + 1) % len(self.players)
                 else:
@@ -376,7 +373,6 @@ def get_card_sprite_pos(card_info):
 def main():
 
     # Player count set to 2 for debug purposes
-    # player_number = int(input("How many players are there? >> "))
     player_number = 2
     players = []
 
