@@ -106,6 +106,10 @@ class Game:
         self.players = players
         self.current_player = 0
         self.direction = "clockwise"
+        self.game_over = False
+        self.winner = None
+        self.current_action = None
+
 
         # Pygame stuff
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
@@ -113,7 +117,7 @@ class Game:
         self.game_font = pygame.font.SysFont("Franklin Gothic Medium", 48)
         self.draw_rect = pygame.Rect(640 - (180 + 60) + 6, 360 - (90) - 6, 180, 90)
         self.discard_rect = pygame.Rect(640 + (180 - 60), 360 - (90), 120, 180)
-        self.current_hand_rect_list = []
+        self.current_hand_card_rects = []
 
     def return_current_player(self):
         for player in self.players:
@@ -131,6 +135,78 @@ class Game:
                 player.hand.append(self.deck.deck.pop(-1))
 
         self.discard.append(self.deck.deck.pop(-1))
+
+    def update_game_state(self):
+        if self.game_over:
+            return
+
+        current_player = self.return_current_player()
+
+        if self.current_action[0] == "draw":
+            new_card = self.deck.deck.pop(-1)
+            current_player.hand.append(new_card)
+            self.current_action = None
+            self.next_turn()
+        elif self.current_action[1] and self.current_action[0].startswith("play"):
+            card_to_play = self.current_action[1]
+
+            if card_to_play.can_play(self.discard[-1]):
+                played_card = current_player.hand.pop(current_player.hand.index(card_to_play))
+                self.discard.append(played_card)
+
+                # Handle special cards
+                card_info = played_card.get_info()
+
+                next_player = None
+                if self.direction == "clockwise":
+                    next_player = (self.current_player + 1) % len(self.players)
+                else:
+                    next_player = (self.current_player - 1 + len(self.players)) % len(self.players)
+                next_player = self.players[next_player]
+
+                if card_info[0] == "draw_2":
+                    for _ in range(2):
+                        next_player.hand.append(self.deck.deck.pop(-1))
+                    self.next_turn()
+                elif card_info[0] == "draw_4":
+                    for _ in range(4):
+                        next_player.hand.append(self.deck.deck.pop(-1))
+                    self.next_turn()
+                    # Colour change TBA
+                    played_card.set_colour()
+                elif card_info[0] == "wild":
+                    # Colour change TBA
+                    played_card.set_colour()
+                elif card_info[0] == "skip":
+                    for _ in range(2)
+                        self.next_turn()
+                elif card_info[0] == "reverse":
+                    self.direction = "anticlockwise" if self.direction == "clockwise" else "clockwise"
+                    if len(self.players) == 2:
+                        self.next_turn()
+
+                if len(current_player.hand) == 0:
+                    self.game_over = True
+                    self.winner = current_player
+                else:
+                    self.next_turn()
+
+    def next_turn(self):
+        if self.direction == "clockwise":
+            self.current_player = (self.current_player + 1) % len(self.players)
+        else:
+            self.current_player = (self.current_player - 1 + len(self.players)) % len(self.players)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONUP:
+            mouse_pos = pygame.mouse.get_pos()
+            if self.draw_rect.collidepoint(mouse_pos):
+                self.current_action = ("draw", None)
+            else:
+                for i, rect in enumerate(self.current_hand_card_rects):
+                    if rect[1].collidepoint(mouse_pos):
+                        self.current_action = ("play", rect[0])
+                        break
 
     def draw_grid(self):
         # Fill background
@@ -194,13 +270,16 @@ class Game:
             playing_card_sheet = pygame.transform.scale(playing_card_sheet, (120, 180))
             self.screen.blit(playing_card_sheet, (start_pos_x + (count * playing_index_spacing), 720 - (60 + 180)))
             if count - 1 != cards_amount:
-                self.current_hand_rect_list.append(pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), playing_index_spacing, 180))
+                self.current_hand_card_rects.append((card, pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), playing_index_spacing, 180)))
             else:
-                self.current_hand_rect_list.append(pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), 120, 180))
+                self.current_hand_card_rects.append((card, pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), 120, 180)))
             count += 1
 
         pygame.display.update()
         self.clock.tick(FRAME_RATE)
+
+    def render(self):
+        self.draw_grid()
 
 def get_card_sprite_pos(card_info):
     pos_x, pos_y = 0, 0
@@ -248,14 +327,11 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONUP:
-                mouse_pos = pygame.mouse.get_pos()
-                for rect in NewGame.current_hand_rect_list:
-                    if rect.collidepoint(mouse_pos):
-                        print(rect)
-                        break
+            else:
+                NewGame.handle_event(event)
 
-        NewGame.draw_grid()
+        NewGame.update_game_state()
+        NewGame.render()
 
         '''
         sheet = pygame.image.load("./assets/spritesheets/standard_card_pack.png")
