@@ -9,6 +9,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import sys
 import pygame
 import random
+from playsound3 import playsound
 
 ## // Constants \\ ##
 SCREEN_WIDTH = 1280
@@ -153,6 +154,7 @@ class Game:
                 new_card = self.deck.deck.pop(-1)
                 current_player.hand.append(new_card)
             self.current_action = None
+            playsound("./assets/sfx/click_high.wav", False)
             self.next_turn()
         elif self.current_action[1] and self.current_action[0].startswith("play"):
             card_to_play = self.current_action[1]
@@ -176,21 +178,26 @@ class Game:
                     for _ in range(2):
                         if len(self.deck.deck) > 0:
                             next_player.hand.append(self.deck.deck.pop(-1))
+                            playsound("./assets/sfx/click_high.wav", False)
                     self.next_turn()
                 elif card_info[0] == "draw_4":
                     for _ in range(4):
                         if len(self.deck.deck) > 0:
                             next_player.hand.append(self.deck.deck.pop(-1))
                     self.current_action = ("colour_change", None)
+                    playsound("./assets/sfx/colourless.wav", False)
                 elif card_info[0] == "wild":
                     self.current_action = ("colour_change", None)
+                    playsound("./assets/sfx/colourless.wav", False)
                 elif card_info[0] == "skip":
                     for _ in range(2):
                         self.next_turn()
+                    playsound("./assets/sfx/click_high.wav", False)
                 elif card_info[0] == "reverse":
                     self.direction = "anticlockwise" if self.direction == "clockwise" else "clockwise"
                     if len(self.players) == 2:
                         self.next_turn()
+                    playsound("./assets/sfx/click_high.wav", False)
 
                 if len(current_player.hand) == 0:
                     self.game_over = True
@@ -227,13 +234,16 @@ class Game:
                     if rect[1].collidepoint(mouse_pos):
                         self.discard[-1].set_colour(rect[0])
                         self.current_action = ("finish_colour", None)
+                        playsound("./assets/sfx/select.wav", False)
                         break
             elif self.draw_rect.collidepoint(mouse_pos):
+                playsound("./assets/sfx/draw.wav", False)
                 self.current_action = ("draw", None)
             else:
                 for i, rect in enumerate(self.current_hand_card_rects):
                     if rect[1].collidepoint(mouse_pos):
                         self.current_action = ("play", rect[0])
+                        playsound("./assets/sfx/click_normal.wav", False)
                         break
 
 
