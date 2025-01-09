@@ -109,6 +109,7 @@ class Game:
         self.game_over = False
         self.winner = None
         self.current_action = None
+        self.confirm_next = True
 
         # Pygame stuff
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
@@ -123,6 +124,7 @@ class Game:
             ("green", pygame.Rect(560, 365, 75, 75), (85, 170, 85)),
             ("yellow", pygame.Rect(645, 365, 75, 75), (255, 170, 0))
         ]
+        self.confirm_rect = pygame.Rect(0, 0, 1280, 160)
 
     def return_current_player(self):
         return self.players[self.current_player_index]
@@ -155,6 +157,7 @@ class Game:
                 current_player.hand.append(new_card)
             self.current_action = None
             playsound("./assets/sfx/click_high.wav", False)
+            self.confirm_next = False
             self.next_turn()
         elif self.current_action[1] and self.current_action[0].startswith("play"):
             card_to_play = self.current_action[1]
@@ -205,6 +208,7 @@ class Game:
                 elif self.current_action[0] != "colour_change" or self.current_action[0] != "finish_colour":
                     self.next_turn()
             if self.current_action[0] != "colour_change" or self.current_action[0] == "finish_colour":
+                self.confirm_next = False
                 self.current_action = None
             self.current_hand_card_rects = []
 
@@ -214,9 +218,9 @@ class Game:
                 random.shuffle(discarded)
                 self.deck.deck.extend(discarded)
         elif self.current_action[0] == "colour_change":
-            print("hello")
             pass
         elif self.current_action[0] == "finish_colour":
+            self.confirm_next = False
             self.next_turn()
             self.current_action = None
 
@@ -227,9 +231,13 @@ class Game:
             self.current_player_index = (self.current_player_index - 1 + len(self.players)) % len(self.players)
 
     def handle_event(self, event):
+        if self.game_over:
+            return
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_pos = pygame.mouse.get_pos()
-            if self.current_action and self.current_action[0] == "colour_change":
+            if not self.confirm_next and self.confirm_rect.collidepoint(mouse_pos):
+                self.confirm_next = True
+            elif self.current_action and self.current_action[0] == "colour_change":
                 for i, rect in enumerate(self.colour_rects):
                     if rect[1].collidepoint(mouse_pos):
                         self.discard[-1].set_colour(rect[0])
@@ -319,11 +327,27 @@ class Game:
                 pygame.draw.rect(self.screen, rect[2], rect[1])
                 print(1)
 
+        if self.game_over:
+            win_text = self.game_font.render(f"Player {self.winner.get_name()} wins!", True, (255, 255, 255))
+            self.screen.blit(win_text,(640 - (win_text.get_rect().width / 2), 720 - (80 + win_text.get_rect().height)))
+
+        pygame.display.update()
+        self.clock.tick(FRAME_RATE)
+
+    def display_confirm_next(self):
+        self.screen.fill((20, 20, 20))
+        pygame.draw.rect(self.screen, (255, 255, 255), (0, 0, 1280, 160))
+        confirm_next_text = self.game_font.render("Please pass to the next player and click to confirm next turn", True, (0, 0, 0))
+        self.screen.blit(confirm_next_text, (640 - (confirm_next_text.get_rect().width / 2), 20))
+
         pygame.display.update()
         self.clock.tick(FRAME_RATE)
 
     def render(self):
-        self.draw_grid()
+        if self.confirm_next or self.game_over:
+            self.draw_grid()
+        else:
+            self.display_confirm_next()
 
 def get_card_sprite_pos(card_info):
     pos_x, pos_y = 0, 0
