@@ -78,7 +78,7 @@ class Card:
     def can_play(self, top_card):
         return (
 
-            self._colour == top_card.colour or
+            self._colour == top_card._colour or
             self._value == top_card.value or
             self._colour == "colourless"
 
