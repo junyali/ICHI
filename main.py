@@ -9,7 +9,6 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import sys
 import pygame
 import random
-import timeit
 
 ## // Constants \\ ##
 SCREEN_WIDTH = 1280
@@ -104,30 +103,34 @@ class Game:
         self.deck = Deck()
         self.discard = []
         self.players = players
-        self.current_player = 0
+        self.current_player_index = 0
         self.direction = "clockwise"
         self.game_over = False
         self.winner = None
         self.current_action = None
 
-
         # Pygame stuff
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
         self.clock = pygame.time.Clock()
         self.game_font = pygame.font.SysFont("Franklin Gothic Medium", 48)
-        self.draw_rect = pygame.Rect(640 - (180 + 60) + 6, 360 - (90) - 6, 180, 90)
         self.discard_rect = pygame.Rect(640 + (180 - 60), 360 - (90), 120, 180)
+        self.draw_rect = pygame.Rect(640 - (180 + 60), 360 - (90), 120, 180)
         self.current_hand_card_rects = []
+        self.colour_rects = [
+            ("red", pygame.Rect(560, 280, 75, 75), (255, 85, 85)),
+            ("blue", pygame.Rect(645, 280, 75, 75), (85, 85, 255)),
+            ("green", pygame.Rect(560, 365, 75, 75), (85, 170, 85)),
+            ("yellow", pygame.Rect(645, 365, 75, 75), (255, 170, 0))
+        ]
 
     def return_current_player(self):
-        for player in self.players:
-            if player.player_id == self.current_player:
-                return player
+        return self.players[self.current_player_index]
 
-    def return_opp_player(self):
-        for player in self.players:
-            if player.player_id != self.current_player:
-                return player
+    def return_next_player(self):
+        if self.direction == "clockwise":
+            return self.players[(self.current_player_index + 1) % len(self.players)]
+        else:
+            return self.players[(self.current_player_index - 1 + len(self.players)) % len(self.players)]
 
     def start_round(self):
         for player in self.players:
@@ -140,43 +143,47 @@ class Game:
         if self.game_over:
             return
 
+        if not self.current_action:
+            return
+
         current_player = self.return_current_player()
 
         if self.current_action[0] == "draw":
-            new_card = self.deck.deck.pop(-1)
-            current_player.hand.append(new_card)
+            if len(self.deck.deck) > 0:
+                new_card = self.deck.deck.pop(-1)
+                current_player.hand.append(new_card)
             self.current_action = None
             self.next_turn()
         elif self.current_action[1] and self.current_action[0].startswith("play"):
             card_to_play = self.current_action[1]
+            print("b", card_to_play.get_info())
 
-            if card_to_play.can_play(self.discard[-1]):
-                played_card = current_player.hand.pop(current_player.hand.index(card_to_play))
-                self.discard.append(played_card)
+            if card_to_play in current_player.hand and card_to_play.can_play(self.discard[-1]):
+                current_player.hand.remove(card_to_play)
+                self.discard.append(card_to_play)
 
-                # Handle special cards
-                card_info = played_card.get_info()
-
+                # Handle special cards below
+                card_info = card_to_play.get_info()
+                print(card_info)
                 next_player = None
                 if self.direction == "clockwise":
-                    next_player = (self.current_player + 1) % len(self.players)
+                    next_player = (self.current_player_index + 1) % len(self.players)
                 else:
-                    next_player = (self.current_player - 1 + len(self.players)) % len(self.players)
+                    next_player = (self.current_player_index - 1 + len(self.players)) % len(self.players)
                 next_player = self.players[next_player]
 
                 if card_info[0] == "draw_2":
                     for _ in range(2):
-                        next_player.hand.append(self.deck.deck.pop(-1))
+                        if len(self.deck.deck) > 0:
+                            next_player.hand.append(self.deck.deck.pop(-1))
                     self.next_turn()
                 elif card_info[0] == "draw_4":
                     for _ in range(4):
-                        next_player.hand.append(self.deck.deck.pop(-1))
-                    self.next_turn()
-                    # Colour change TBA
-                    played_card.set_colour()
+                        if len(self.deck.deck) > 0:
+                            next_player.hand.append(self.deck.deck.pop(-1))
+                    self.current_action = ("colour_change", None)
                 elif card_info[0] == "wild":
-                    # Colour change TBA
-                    played_card.set_colour()
+                    self.current_action = ("colour_change", None)
                 elif card_info[0] == "skip":
                     for _ in range(2):
                         self.next_turn()
@@ -188,25 +195,47 @@ class Game:
                 if len(current_player.hand) == 0:
                     self.game_over = True
                     self.winner = current_player
-                else:
+                elif self.current_action[0] != "colour_change" or self.current_action[0] != "finish_colour":
                     self.next_turn()
+            if self.current_action[0] != "colour_change" or self.current_action[0] == "finish_colour":
+                self.current_action = None
+            self.current_hand_card_rects = []
+
+            if len(self.deck.deck) <= 4:
+                discarded = self.discard[:-1]
+                self.discard = [self.discard[-1]]
+                random.shuffle(discarded)
+                self.deck.deck.extend(discarded)
+        elif self.current_action[0] == "colour_change":
+            print("hello")
+            pass
+        elif self.current_action[0] == "finish_colour":
+            self.next_turn()
+            self.current_action = None
 
     def next_turn(self):
         if self.direction == "clockwise":
-            self.current_player = (self.current_player + 1) % len(self.players)
+            self.current_player_index = (self.current_player_index + 1) % len(self.players)
         else:
-            self.current_player = (self.current_player - 1 + len(self.players)) % len(self.players)
+            self.current_player_index = (self.current_player_index - 1 + len(self.players)) % len(self.players)
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_pos = pygame.mouse.get_pos()
-            if self.draw_rect.collidepoint(mouse_pos):
+            if self.current_action and self.current_action[0] == "colour_change":
+                for i, rect in enumerate(self.colour_rects):
+                    if rect[1].collidepoint(mouse_pos):
+                        self.discard[-1].set_colour(rect[0])
+                        self.current_action = ("finish_colour", None)
+                        break
+            elif self.draw_rect.collidepoint(mouse_pos):
                 self.current_action = ("draw", None)
             else:
                 for i, rect in enumerate(self.current_hand_card_rects):
                     if rect[1].collidepoint(mouse_pos):
                         self.current_action = ("play", rect[0])
                         break
+
 
     def draw_grid(self):
         # Fill background
@@ -231,7 +260,7 @@ class Game:
         self.screen.blit(discard_sheet, (640+(180-60), 360-(90)))
 
         # Non-playing Pile
-        non_playing_player = self.return_opp_player()
+        non_playing_player = self.return_next_player()
         non_playing_text = self.game_font.render(non_playing_player.get_name(), True, (255, 255, 255))
         self.screen.blit(non_playing_text, (640 - (non_playing_text.get_rect().width / 2), 10))
 
@@ -261,8 +290,7 @@ class Game:
             if non_playing_index_spacing == 1:
                 break
             start_pos_x = 640 - ((((cards_amount - 1) * non_playing_index_spacing) + 120) / 2)
-        count = 0
-        for card in playing_player.get_hand():
+        for count, card in enumerate(playing_player.get_hand()):
             card_pos = get_card_sprite_pos(card.get_info())
             playing_card_sheet = pygame.image.load("./assets/spritesheets/standard_card_pack.png")
             playing_card_sheet.set_clip(pygame.Rect(card_pos[0], card_pos[1], 240, 360))
@@ -274,6 +302,12 @@ class Game:
             else:
                 self.current_hand_card_rects.append((card, pygame.Rect(start_pos_x + (count * playing_index_spacing), 720 - (60 + 180), 120, 180)))
             count += 1
+
+        # Colour change
+        if self.current_action and self.current_action[0] == "colour_change":
+            for i, rect in enumerate(self.colour_rects):
+                pygame.draw.rect(self.screen, rect[2], rect[1])
+                print(1)
 
         pygame.display.update()
         self.clock.tick(FRAME_RATE)
@@ -332,151 +366,6 @@ def main():
 
         NewGame.update_game_state()
         NewGame.render()
-
-        '''
-        sheet = pygame.image.load("./assets/spritesheets/standard_card_pack.png")
-        pos_x, pos_y = 0, 0
-
-        count = 0
-
-        for card in deck.deck:
-            card_info = card.get_info()
-            if card_info[1] == "colourless":
-                pos_x = 3120
-                if card_info[0] == "wild":
-                    pos_y = 0
-                elif card_info[0] == "draw_4":
-                    pos_y = 1440
-            elif card_info[1] == "red":
-                pos_y = 0
-            elif card_info[1] == "yellow":
-                pos_y = 360
-            elif card_info[1] == "green":
-                pos_y = 720
-            elif card_info[1] == "blue":
-                pos_y = 1080
-
-            if card_info[1] != "colourless":
-                pos_x = values.index(card_info[0]) * 240
-
-            sheet.set_clip(pygame.Rect(pos_x, pos_y, 240, 360))
-            draw = sheet.subsurface(sheet.get_clip())
-            draw = pygame.transform.scale(draw, (240, 360))
-
-            backdrop = pygame.Rect(count * 160, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-
-            screen.blit(draw, backdrop)
-
-            count += 1
-        '''
-
-    pygame.quit()
-    sys.exit(0)
-
-    while True:
-
-        if len(Round.deck.deck) <= 25:
-            current = Round.deck.deck
-            Round.deck = Deck()
-            for card in current:
-                Round.deck.deck.append(card)
-
-        player = Round.return_current_player()
-
-        print("DISCARD Pile: {} {}".format(Round.discard[-1].get_info()[1].upper(), Round.discard[-1].get_info()[0].upper()))
-
-        print("It is player {}'s turn.".format(str(player.name)))
-
-        print("{}, you have the following {} cards in your hand: ".format(player.name,str(len(player.hand))))
-        for card in player.hand:
-            card_info = card.get_info()
-            print("{} {}".format(card_info[1].upper(), card_info[0].upper()))
-
-        card_playing = None
-        valid = False
-
-        while not valid:
-            card_to_play = str(input("{}, which card would you like to play, or [draw] from the deck? >> ".format(player.name))).lower()
-
-            if card_to_play == "draw":
-                new_card = Round.deck.deck.pop(-1)
-                player.hand.append(new_card)
-
-                print("You drew {} {}".format(new_card.get_info()[1].upper(), new_card.get_info()[0].upper()))
-
-                valid = True
-                continue
-
-            for card in player.hand:
-                card_info = card.get_info()
-                if "{colour} {value}".format(colour=card_info[1], value=card_info[0]) == card_to_play:
-                    card_playing = card
-                    break
-
-            if card_playing is None:
-                print("You do not have that card.")
-                continue
-
-            if card_playing.can_play(Round.discard[-1]):
-                player.hand.pop(player.hand.index(card_playing))
-                Round.discard.append(card_playing)
-
-                if Round.discard[-1].get_info()[1] == "colourless":
-                    colour_valid = False
-
-                    while not colour_valid:
-                        new_colour = str(input("What is the new colour ? >> ")).lower()
-
-                        if new_colour in colours:
-                            Round.discard[-1].set_colour(new_colour)
-                            colour_valid = True
-                        else:
-                            print("That is not a valid colour.")
-
-                if Round.discard[-1].get_info()[0] == "draw_2":
-                    for i in range(2):
-                        if Round.direction == "clockwise":
-                            next_player = 0 if Round.current_player == len(Round.players) - 1 else Round.current_player + 1
-                            Round.players[next_player].hand.append(Round.deck.deck.pop(-1))
-                            Round.current_player = next_player
-                        elif Round.direction == "anticlockwise":
-                            next_player = len(Round.players) - 1 if Round.current_player == 0 else Round.current_player - 1
-                            Round.players[next_player].hand.append(Round.deck.deck.pop(-1))
-                            Round.current_player = next_player
-                elif Round.discard[-1].get_info()[0] == "draw_4":
-                    for i in range(4):
-                        if Round.direction == "clockwise":
-                            next_player = 0 if Round.current_player == len(Round.players) - 1 else Round.current_player + 1
-                            Round.players[next_player].hand.append(Round.deck.deck.pop(-1))
-                            Round.current_player = next_player
-                        elif Round.direction == "anticlockwise":
-                            next_player = len(Round.players) - 1 if Round.current_player == 0 else Round.current_player - 1
-                            Round.players[next_player].hand.append(Round.deck.deck.pop(-1))
-                            Round.current_player = next_player
-                elif Round.discard[-1].get_info()[0] == "skip":
-                    if Round.direction == "clockwise":
-                        Round.current_player = 0 if Round.current_player == len(Round.players) - 1 else Round.current_player + 1
-                    elif Round.direction == "anticlockwise":
-                        Round.current_player = len(Round.players) - 1 if Round.current_player == 0 else Round.current_player - 1
-                elif Round.discard[-1].get_info()[0] == "reverse":
-                    if Round.direction == "clockwise":
-                        Round.direction = "anticlockwise"
-                    elif Round.direction == "anticlockwise":
-                        Round.direction = "clockwise"
-
-                valid = True
-            else:
-                print("You can't play that card.")
-
-        if len(player.hand) == 0:
-            print("{} wins.".format(player.name))
-            break
-
-        if Round.current_player == len(Round.players) - 1:
-            Round.current_player = 0
-        else:
-            Round.current_player += 1
-
 
 if __name__ == '__main__':
     main()
