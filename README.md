@@ -27,3 +27,8 @@ $ python main.py
 - Clicks aren't unreliable
 - This program is painfully slow
 - After completing each turn, pass the machine to the other player to proceed to next turn
+
+## Demo
+
+![Demo 1](https://github.com/junyali/ICHI/blob/master/assets/img/demo1.png?raw=true)
+![Demo 2](https://github.com/junyali/ICHI/blob/master/assets/img/demo2.png?raw=true)
